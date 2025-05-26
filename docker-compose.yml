@@ -8,32 +8,27 @@ services:
       - wordpress
       - mariadb
     ports:
-      - "443:443"
+      - "80:80"
     volumes:
-      - /home/manufern/data/web:/var/www/html
+      - ./web:/var/www/html
     networks:
       inception:
-    restart: always
-
   wordpress:
     build: requirements/wordpress/.
     container_name: wp-php
     depends_on:
       - mariadb
     volumes:
-      - /home/manufern/data/web:/var/www/html
+      - ./web:/var/www/html
     networks:
       inception:
-    restart: always
-
   mariadb:
     build: requirements/mariadb/.
     container_name: mariadb
     volumes:
-      - /home/manufern/data/database:/var/lib/mysql
+    - ./database:/var/lib/mysql
     networks:
       inception:
-    restart: always
 
 networks:
   inception:
