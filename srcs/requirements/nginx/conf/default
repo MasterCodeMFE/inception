@@ -1,0 +1,133 @@
+##
+# Configuración de Nginx optimizada para WordPress
+##
+
+server {
+    # Configuración SSL/TLS - Solo HTTPS
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+
+    # Especificamos las versiones de TLS permitidas: solo TLSv1.2 y TLSv1.3
+    ssl_protocols TLSv1.2 TLSv1.3;
+    
+    # Certificados SSL
+    ssl_certificate /etc/nginx/ssl/manuel.42.fr.crt;
+    ssl_certificate_key /etc/nginx/ssl/manuel.42.fr.key;
+
+    # Configuración SSL segura
+    ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384';
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1h;
+    ssl_session_tickets off;
+
+    # Configuración del servidor
+    root /var/www/html;
+    index index.php index.html index.htm;
+    server_name ${WORDPRESS_DOMAIN};
+
+    # Configuración general
+    client_max_body_size 64M;
+    
+    # Logs específicos (opcional)
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
+
+    # Configuración principal para WordPress
+    location / {
+        try_files $uri $uri/ /index.php?$args;
+    }
+
+    # Manejo de archivos PHP
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass wordpress:9000;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        include fastcgi_params;
+        
+        # Configuraciones adicionales para WordPress
+        fastcgi_intercept_errors on;
+        fastcgi_buffer_size 128k;
+        fastcgi_buffers 4 256k;
+        fastcgi_busy_buffers_size 256k;
+        fastcgi_temp_file_write_size 256k;
+        fastcgi_read_timeout 240;
+    }
+
+    # Optimizaciones para archivos estáticos
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        access_log off;
+    }
+
+    # Seguridad - Denegar acceso a archivos sensibles
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    location ~ ~$ {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    location ~* /(?:uploads|files)/.*\.php$ {
+        deny all;
+    }
+
+    location ~* ^/wp-content/uploads/.*\.(php|php5|phtml|pl|py|jsp|asp|sh|cgi)$ {
+        deny all;
+    }
+
+    # Proteger wp-config.php
+    location ~ /wp-config.php {
+        deny all;
+    }
+
+    # Proteger archivos de backup y log
+    location ~* ^.+\.(bak|log|old|orig|original|php#|php~|php_bak|save|swo|swp|tmp)$ {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    # Bloquear acceso a directorios de WordPress sensibles
+    location ~ ^/(wp-admin|wp-includes)/ {
+        location ~ \.php$ {
+            include snippets/fastcgi-php.conf;
+            fastcgi_pass wordpress:9000;
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+            include fastcgi_params;
+        }
+    }
+
+    # Manejo específico de wp-admin
+    location = /wp-admin {
+        return 301 $scheme://$host$request_uri/;
+    }
+
+    # Robots.txt y favicon
+    location = /robots.txt {
+        allow all;
+        log_not_found off;
+        access_log off;
+    }
+
+    location = /favicon.ico {
+        log_not_found off;
+        access_log off;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Configuración adicional para xmlrpc.php (puede ser deshabilitado por seguridad)
+    location = /xmlrpc.php {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass wordpress:9000;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+}
